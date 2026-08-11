@@ -74,6 +74,9 @@
   header p{margin:4px 0 0;color:var(--muted);font-size:13px;}
   .themebtn{width:auto;margin:0;flex:none;background:var(--panel2);color:var(--text);border:1px solid var(--border);
             padding:8px 12px;font-size:13px;white-space:nowrap;}
+  /* Right-hand header stack: version label sits above the theme button. */
+  .headright{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:8px;}
+  .appversion{color:var(--muted);font-family:var(--mono);font-size:11px;letter-spacing:.04em;opacity:.75;}
   .wrap{max-width:1180px;margin:0 auto;padding:20px 24px 60px;}
   .disclaimer{background:var(--disc-bg);border:1px solid var(--disc-bd);color:var(--disc-fg);padding:12px 14px;border-radius:8px;font-size:13px;margin-bottom:18px;line-height:1.5;}
   .disclaimer b{color:var(--disc-strong);}
@@ -153,7 +156,10 @@
     <h1>Citation I/SP (Cessna Model 501) &mdash; TOLD Calculator</h1>
     <p>Built from Rudy's Pilots' Abbreviated Checklist (501CL-28) &mdash; reference / training tool only. Not for flight dispatch.</p>
   </div>
-  <button type="button" class="themebtn" id="themeBtn" onclick="cycleTheme()" aria-live="polite">Theme: Auto</button>
+  <div class="headright">
+    <span class="appversion" id="appVersion" title="Application version">v1.0.0</span>
+    <button type="button" class="themebtn" id="themeBtn" onclick="cycleTheme()" aria-live="polite">Theme: Auto</button>
+  </div>
 </header>
 <div class="wrap">
   <div class="disclaimer">

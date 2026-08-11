@@ -2,9 +2,10 @@
  *
  * Everything here is a small, static, versioned asset, so the strategy is
  * simple: precache on install, serve cache-first, and drop old caches on
- * activate. Bump CACHE_VERSION whenever index.html or the icons change,
- * otherwise a pinned app will keep serving the old build. */
-const CACHE_VERSION = 'told-v1';
+ * activate. CACHE_VERSION tracks the version label in index.html and must stay
+ * in sync with it, or a pinned app keeps serving the old build. Don't edit it by
+ * hand -- run scripts/bump-version.sh, which updates both files together. */
+const CACHE_VERSION = 'told-v1.0.0';
 const ASSETS = [
   './',
   'index.html',
