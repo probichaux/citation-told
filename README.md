@@ -41,7 +41,10 @@ live in that one file, with no build step and no network dependency. It works
 three ways:
 
 - **Locally**: open `index.html` directly in any modern browser (`file://` is
-  fine; only the offline service worker is skipped).
+  fine). Two things need a server and are skipped there: the offline service
+  worker, and the airport weather lookup, which calls a server-side proxy. All
+  the performance calculations work. To exercise those two, run
+  `npx wrangler pages dev .` and use the URL it prints.
 - **Cloudflare Pages**: deploy the repository root as-is. There is no build
   command and no output subdirectory — the deployed tree is the repository tree.
   `_headers` sets the security headers and keeps `index.html`, `sw.js`, and the

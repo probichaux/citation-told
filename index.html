@@ -344,6 +344,15 @@ async function loadAirportWx(){
   const code = (document.getElementById('aptCode').value || '').trim().toUpperCase();
   if(!code){ aptSay('Enter an airport code first.', 'bad'); return; }
 
+  /* Opened straight from disk there is no server, so /api/metar cannot exist.
+   * Say so plainly rather than reporting it as a network failure. */
+  if(location.protocol === 'file:'){
+    aptSay('Live weather needs the hosted site (<b>citation-perf.pro</b>) or a local dev server, because the '
+      + 'lookup runs through a small server-side proxy. This file opened straight from disk, so there is nothing '
+      + 'to ask. Everything else on this page works &mdash; enter the conditions by hand.', 'warn');
+    return;
+  }
+
   const label = btn.textContent;
   btn.disabled = true; btn.textContent = 'Loading…';
   aptSay('Requesting the latest METAR for ' + aptEsc(code) + '…');
