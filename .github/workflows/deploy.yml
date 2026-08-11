@@ -32,6 +32,12 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Pinned deliberately. Unpinned, the action installs wrangler@4 and
+          # takes whatever `latest` is; 4.121.0 shipped depending on
+          # miniflare@5.20260804.1-alpha, which was never published, so the
+          # install 404s and the deploy fails. Bump this after verifying
+          # `npm i wrangler@<version>` resolves.
+          wranglerVersion: "4.120.1"
           command: >-
             pages deploy .
             --project-name=citation-perf
