@@ -43,16 +43,47 @@ three ways:
 - **Locally**: open `index.html` directly in any modern browser (`file://` is
   fine; only the offline service worker is skipped).
 - **Cloudflare Pages**: deploy the repository root as-is. There is no build
-  command and no output subdirectory — set the build output directory to `/`.
+  command and no output subdirectory — the deployed tree is the repository tree.
   `_headers` sets the security headers and keeps `index.html`, `sw.js`, and the
   manifest revalidating so a deployed change actually reaches pinned devices.
+  Live at [citation-perf.pro](https://citation-perf.pro).
 - **Pinned on iOS/iPadOS**: open the deployed URL in Safari, then
   *Share → Add to Home Screen*. It launches standalone (no browser chrome),
   uses the `icons/` app icon, and `sw.js` precaches everything so it keeps
   working with no connectivity — which is the point, in a cockpit.
 
-After changing `index.html` or the icons, bump `CACHE_VERSION` in `sw.js`.
-Otherwise already-pinned installs keep serving the previously cached build.
+## Versioning and deployment
+
+The version shows in the top-right of the app header and lives in exactly two
+places: that label in `index.html` and `CACHE_VERSION` in `sw.js`. They must
+match. `sw.js` serves cache-first, so if `CACHE_VERSION` doesn't change, an
+already-pinned install keeps serving the previously cached build — the deploy
+succeeds and never reaches the devices that matter.
+
+Never edit either by hand. Bump both together:
+
+```sh
+scripts/bump-version.sh          # patch: 1.0.0 -> 1.0.1
+scripts/bump-version.sh minor    # 1.0.0 -> 1.1.0
+scripts/bump-version.sh major    # 1.0.0 -> 2.0.0
+scripts/bump-version.sh 2.3.4    # explicit
+scripts/bump-version.sh --check  # verify the two files agree
+```
+
+Two guards enforce this:
+
+- A **pre-push hook** (`.githooks/pre-push`) rejects a push to `main` that
+  changes `index.html`, `sw.js`, `manifest.webmanifest`, or `icons/` without a
+  version bump, and rejects any commit where the two version strings disagree.
+  Enable it once per clone with `git config core.hooksPath .githooks`.
+- The **deploy workflow** re-runs `--check` before publishing, so a desync fails
+  the build rather than shipping silently.
+
+Pushing to `main` deploys automatically via
+`.github/workflows/deploy.yml`, which uploads the repository root to the
+`citation-perf` Cloudflare Pages project. It needs two repository secrets:
+`CLOUDFLARE_API_TOKEN` (a token with the *Cloudflare Pages: Edit* permission)
+and `CLOUDFLARE_ACCOUNT_ID`.
 
 ## Outputs
 

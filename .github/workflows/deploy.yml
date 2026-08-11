@@ -1,0 +1,39 @@
+name: Deploy to Cloudflare Pages
+
+# Every push to main publishes the repo root to the citation-perf Pages project,
+# which serves citation-perf.pro. There is no build step -- index.html is
+# self-contained, so the deploy is a direct upload of the tree as-is.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  # Never let two deploys race; a later push supersedes an in-flight one.
+  group: pages-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v7
+
+      # A deploy whose CACHE_VERSION doesn't match the displayed version would
+      # publish fine and then fail to reach pinned installs. Fail loudly instead.
+      - name: Verify version sync
+        run: ./scripts/bump-version.sh --check
+
+      - name: Deploy to Pages
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: >-
+            pages deploy .
+            --project-name=citation-perf
+            --branch=main
+            --commit-hash=${{ github.sha }}
