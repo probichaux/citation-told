@@ -5,10 +5,12 @@
  * activate. CACHE_VERSION tracks the version label in index.html and must stay
  * in sync with it, or a pinned app keeps serving the old build. Don't edit it by
  * hand -- run scripts/bump-version.sh, which updates both files together. */
-const CACHE_VERSION = 'told-v1.0.0';
+const CACHE_VERSION = 'told-v1.0.1';
+/* './' is the canonical entry -- deliberately no 'index.html' entry. Pages
+ * 308-redirects /index.html to /, so precaching it would store a response with
+ * redirected=true, which browsers refuse to serve for a navigation request. */
 const ASSETS = [
   './',
-  'index.html',
   'manifest.webmanifest',
   'icons/apple-touch-icon.png',
   'icons/icon-192.png',
@@ -43,13 +45,15 @@ self.addEventListener('fetch', (event) => {
       if (hit) return hit;
       return fetch(req)
         .then((res) => {
-          if (res && res.ok && res.type === 'basic') {
+          // Never store a redirected response: serving one for a later
+          // navigation is a network error, not a cache hit.
+          if (res && res.ok && res.type === 'basic' && !res.redirected) {
             const copy = res.clone();
             caches.open(CACHE_VERSION).then((cache) => cache.put(req, copy));
           }
           return res;
         })
-        .catch(() => (req.mode === 'navigate' ? caches.match('index.html') : Response.error()));
+        .catch(() => (req.mode === 'navigate' ? caches.match('./') : Response.error()));
     })
   );
 });

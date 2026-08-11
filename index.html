@@ -157,7 +157,7 @@
     <p>Built from Rudy's Pilots' Abbreviated Checklist (501CL-28) &mdash; reference / training tool only. Not for flight dispatch.</p>
   </div>
   <div class="headright">
-    <span class="appversion" id="appVersion" title="Application version">v1.0.0</span>
+    <span class="appversion" id="appVersion" title="Application version">v1.0.1</span>
     <button type="button" class="themebtn" id="themeBtn" onclick="cycleTheme()" aria-live="polite">Theme: Auto</button>
   </div>
 </header>
@@ -287,16 +287,6 @@ function showTab(name){
   document.getElementById('tabpanel-landing').classList.toggle('active', name==='landing');
   document.getElementById('tabbtn-takeoff').classList.toggle('active', name==='takeoff');
   document.getElementById('tabbtn-landing').classList.toggle('active', name==='landing');
-}
-
-// Register a service worker for offline use when served over http(s)/localhost.
-// Silently no-ops on file:// (iOS "Add to Home Screen" of a local file still works fine without it).
-if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){
-  const swCode = "self.addEventListener('install',e=>self.skipWaiting());"
-    + "self.addEventListener('activate',e=>self.clients.claim());"
-    + "self.addEventListener('fetch',e=>{e.respondWith(fetch(e.request).catch(()=>caches.match(e.request)));});";
-  const swBlob = new Blob([swCode], {type:'application/javascript'});
-  navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(()=>{});
 }
 
 function cToF(c){ return c*9/5+32; }
