@@ -1,0 +1,11 @@
+# Changelog
+
+## v1.0.1 — 2026-08-11
+
+The service worker caches the root URL and does not cache `index.html`. The
+application does not register a second service worker from a blob URL.
+
+## v1.0.0 — 2026-08-11
+
+The application shows its version in the page header. A script sets the same
+version in `index.html` and `sw.js`.
