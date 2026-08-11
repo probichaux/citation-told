@@ -1,0 +1,16 @@
+{
+  "name": "Citation I/SP TOLD Calculator",
+  "short_name": "TOLD Calc",
+  "description": "Takeoff and landing performance tables for the Cessna Model 501 Citation I/SP, reproduced from the Pilots' Abbreviated Checklist Rev. 28.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f1720",
+  "theme_color": "#0f1720",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
