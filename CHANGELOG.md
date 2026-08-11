@@ -2,9 +2,9 @@
 
 ## v1.1.0 — 2026-08-11
 
-The user can give an airport code to fill the field elevation, the altimeter
-setting, and the OAT from the latest METAR. The tool shows the observed wind but
-does not fill the wind component.
+The user can give a worldwide ICAO or IATA code to fill field elevation,
+altimeter, and OAT from the latest METAR. A code that matches more than one
+airport fills nothing.
 
 ## v1.0.1 — 2026-08-11
 

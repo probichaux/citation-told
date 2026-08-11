@@ -195,7 +195,7 @@
 
       <div class="panel">
         <h2>Airport (optional)</h2>
-        <label for="aptCode">Airport code (ICAO, or IATA for US stations)</label>
+        <label for="aptCode">Airport code (ICAO or IATA, worldwide)</label>
         <div class="aptrow">
           <input type="text" id="aptCode" maxlength="4" placeholder="KHSV" autocapitalize="characters"
                  autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter'){event.preventDefault();loadAirportWx();}">
@@ -204,7 +204,8 @@
         <p class="helptext">Fills field elevation, altimeter, and OAT on both tabs from the latest METAR, and
         reports the observed wind for you to convert to a head/tail component. Advisory only &mdash; always confirm
         against your own altimeter and current ATIS before use. Requires a network connection; every field stays
-        editable by hand.</p>
+        editable by hand. A 4-letter ICAO code is unambiguous; some 3-letter codes match more than one airport, and
+        those fill nothing until you narrow them down.</p>
         <div id="aptStatus"></div>
       </div>
 
@@ -350,6 +351,19 @@ async function loadAirportWx(){
   try{
     const res = await fetch('/api/metar?id=' + encodeURIComponent(code), { headers: { accept: 'application/json' } });
     const data = await res.json().catch(() => null);
+
+    /* An ambiguous 3-letter code fills nothing on purpose: a 3-letter code can
+     * be an IATA code and a US local code for different airports (HND is both
+     * Tokyo Haneda and Henderson, Nevada). Filling from the wrong field is
+     * worse than filling nothing, so show the choices instead. */
+    if(res.status === 409 && data && Array.isArray(data.candidates)){
+      let list = data.candidates.map((c) =>
+        '<b>' + aptEsc(c.stationId) + '</b>' + (c.name ? ' &mdash; ' + aptEsc(c.name) : '')
+        + (c.elevationFt !== null && c.elevationFt !== undefined ? ' (' + c.elevationFt + ' ft)' : '')
+      ).join('<br>');
+      aptSay(aptEsc(data.message) + ' Nothing has been filled in.<br>' + list, 'warn');
+      return;
+    }
 
     if(!res.ok || !data){
       aptSay(data && data.message ? aptEsc(data.message) : 'Lookup failed (HTTP ' + res.status + ').', 'bad');
