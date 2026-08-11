@@ -5,7 +5,7 @@
  * activate. CACHE_VERSION tracks the version label in index.html and must stay
  * in sync with it, or a pinned app keeps serving the old build. Don't edit it by
  * hand -- run scripts/bump-version.sh, which updates both files together. */
-const CACHE_VERSION = 'told-v1.0.1';
+const CACHE_VERSION = 'told-v1.1.0';
 /* './' is the canonical entry -- deliberately no 'index.html' entry. Pages
  * 308-redirects /index.html to /, so precaching it would store a response with
  * redirected=true, which browsers refuse to serve for a navigation request. */
@@ -38,7 +38,15 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
-  if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+
+  /* Never touch /api/ -- those are live weather observations. This cache is
+   * cache-first, so caching them would serve an old altimeter setting and
+   * temperature as though they were current. Let the network answer, and let it
+   * fail honestly when there is no connectivity. */
+  if (url.pathname.startsWith('/api/')) return;
 
   event.respondWith(
     caches.match(req).then((hit) => {

@@ -88,6 +88,10 @@
   input[type=number], select, input[type=text]{
     width:100%;padding:8px 10px;background:var(--panel2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:14px;
   }
+  /* Airport code + fetch button on one line. */
+  .aptrow{display:flex;gap:8px;align-items:flex-start;}
+  .aptrow input[type=text]{flex:1;text-transform:uppercase;letter-spacing:.08em;font-family:var(--mono);}
+  .aptrow button{width:auto;flex:none;margin-top:0;white-space:nowrap;}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
   .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
   .radiogrp{display:flex;gap:14px;margin-top:6px;flex-wrap:wrap;}
@@ -157,7 +161,7 @@
     <p>Built from Rudy's Pilots' Abbreviated Checklist (501CL-28) &mdash; reference / training tool only. Not for flight dispatch.</p>
   </div>
   <div class="headright">
-    <span class="appversion" id="appVersion" title="Application version">v1.0.1</span>
+    <span class="appversion" id="appVersion" title="Application version">v1.1.0</span>
     <button type="button" class="themebtn" id="themeBtn" onclick="cycleTheme()" aria-live="polite">Theme: Auto</button>
   </div>
 </header>
@@ -187,6 +191,21 @@
         <p class="helptext">Per the checklist's Configuration Codes table (Temporary Change, p.iv&ndash;v). If you're not sure
         which applies to your airframe (early serials depend on Service Bulletin incorporation), check your aircraft's
         checklist page footers &mdash; they print "Configuration AB" or "Configuration AC" directly.</p>
+      </div>
+
+      <div class="panel">
+        <h2>Airport (optional)</h2>
+        <label for="aptCode">Airport code (ICAO, or IATA for US stations)</label>
+        <div class="aptrow">
+          <input type="text" id="aptCode" maxlength="4" placeholder="KHSV" autocapitalize="characters"
+                 autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter'){event.preventDefault();loadAirportWx();}">
+          <button type="button" id="aptBtn" onclick="loadAirportWx()">Load Wx</button>
+        </div>
+        <p class="helptext">Fills field elevation, altimeter, and OAT on both tabs from the latest METAR, and
+        reports the observed wind for you to convert to a head/tail component. Advisory only &mdash; always confirm
+        against your own altimeter and current ATIS before use. Requires a network connection; every field stays
+        editable by hand.</p>
+        <div id="aptStatus"></div>
       </div>
 
       <div class="tabbar">
@@ -287,6 +306,92 @@ function showTab(name){
   document.getElementById('tabpanel-landing').classList.toggle('active', name==='landing');
   document.getElementById('tabbtn-takeoff').classList.toggle('active', name==='takeoff');
   document.getElementById('tabbtn-landing').classList.toggle('active', name==='landing');
+}
+
+/* ---- Airport weather prefill (issue #1) ----------------------------------
+ *
+ * Fills field elevation, altimeter, and OAT on both tabs from the latest METAR,
+ * via the same-origin /api/metar proxy (the upstream NOAA API sends no CORS
+ * header, so the browser cannot call it directly).
+ *
+ * Wind is deliberately NOT filled. The wind inputs here are a head/tail
+ * *component* in knots, and computing a component from a METAR direction needs
+ * the runway heading, which this tool never asks for. Guessing it would write an
+ * unverified number into a performance field. The observed wind is reported as
+ * text instead, for the pilot to resolve and enter.
+ */
+const APT_STALE_MIN = 75;
+
+function aptEsc(s){
+  return String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function aptSay(html, cls){
+  document.getElementById('aptStatus').innerHTML =
+    '<p class="note' + (cls ? ' ' + cls : '') + '">' + html + '</p>';
+}
+
+function aptWindText(d){
+  if(d.windSpeedKt === 0) return 'calm';
+  if(d.windSpeedKt === null) return 'not reported';
+  if(d.windDirDeg === null) return aptEsc(d.windDirRaw) + ' at ' + d.windSpeedKt + ' kt';
+  return String(d.windDirDeg).padStart(3,'0') + '&deg; at ' + d.windSpeedKt + ' kt';
+}
+
+async function loadAirportWx(){
+  const btn = document.getElementById('aptBtn');
+  const code = (document.getElementById('aptCode').value || '').trim().toUpperCase();
+  if(!code){ aptSay('Enter an airport code first.', 'bad'); return; }
+
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Loading…';
+  aptSay('Requesting the latest METAR for ' + aptEsc(code) + '…');
+
+  try{
+    const res = await fetch('/api/metar?id=' + encodeURIComponent(code), { headers: { accept: 'application/json' } });
+    const data = await res.json().catch(() => null);
+
+    if(!res.ok || !data){
+      aptSay(data && data.message ? aptEsc(data.message) : 'Lookup failed (HTTP ' + res.status + ').', 'bad');
+      return;
+    }
+
+    const set = (id, val) => {
+      if(val === null || val === undefined) return false;
+      document.getElementById(id).value = val;
+      return true;
+    };
+
+    const filled = [];
+    if(set('fieldElev', data.elevationFt)){ set('ldgElev', data.elevationFt); filled.push('field elevation'); }
+    if(set('altSetting', data.altimeterInHg)){ set('ldgAlt', data.altimeterInHg); filled.push('altimeter'); }
+    if(set('toOAT', data.oatC)){ set('ldgOAT', data.oatC); filled.push('OAT'); }
+
+    if(filled.length === 0){
+      aptSay('The report for ' + aptEsc(data.stationId) + ' contains no elevation, altimeter, or temperature. Enter the conditions by hand.', 'bad');
+      return;
+    }
+
+    const age = data.ageMinutes;
+    const stale = age !== null && age > APT_STALE_MIN;
+    let msg = '<b>' + aptEsc(data.stationId) + '</b>'
+      + (data.name ? ' &mdash; ' + aptEsc(data.name) : '')
+      + '. Filled ' + filled.join(', ') + ' on both tabs.'
+      + ' Observed wind ' + aptWindText(data) + ' &mdash; enter the head/tail component yourself,'
+      + ' since that needs the runway heading.'
+      + ' Elevation is the reporting station’s, which can differ from published field elevation'
+      + ' by a few feet; confirm before use.';
+    if(age !== null){
+      msg += ' Report is ' + age + ' min old' + (stale ? ' &mdash; <b>this may no longer be current</b>.' : '.');
+    }
+    if(data.rawOb) msg += '<br><span class="src">' + aptEsc(data.rawOb) + '</span>';
+
+    aptSay(msg, stale ? 'warn' : '');
+  } catch(err){
+    aptSay('Could not reach the weather service. If you are offline, enter the conditions by hand — every field stays editable.', 'bad');
+  } finally {
+    btn.disabled = false; btn.textContent = label;
+  }
 }
 
 function cToF(c){ return c*9/5+32; }

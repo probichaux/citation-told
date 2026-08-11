@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.1.0 — 2026-08-11
+
+The user can give an airport code to fill the field elevation, the altimeter
+setting, and the OAT from the latest METAR. The tool shows the observed wind but
+does not fill the wind component.
+
 ## v1.0.1 — 2026-08-11
 
 The service worker caches the root URL and does not cache `index.html`. The
