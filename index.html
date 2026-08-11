@@ -335,8 +335,13 @@ function aptSay(html, cls){
 function aptWindText(d){
   if(d.windSpeedKt === 0) return 'calm';
   if(d.windSpeedKt === null) return 'not reported';
-  if(d.windDirDeg === null) return aptEsc(d.windDirRaw) + ' at ' + d.windSpeedKt + ' kt';
-  return String(d.windDirDeg).padStart(3,'0') + '&deg; at ' + d.windSpeedKt + ' kt';
+  if(d.windDirDeg !== null) return String(d.windDirDeg).padStart(3,'0') + '&deg; at ' + d.windSpeedKt + ' kt';
+  /* A numeric direction is absent. It may still be a non-numeric report such as
+   * VRB, but a station can also give a speed and omit direction entirely, in
+   * which case there is nothing to name -- don't print the missing value. */
+  if(d.windDirRaw !== null && d.windDirRaw !== undefined && d.windDirRaw !== '')
+    return aptEsc(d.windDirRaw) + ' at ' + d.windSpeedKt + ' kt';
+  return 'direction not reported, ' + d.windSpeedKt + ' kt';
 }
 
 async function loadAirportWx(){

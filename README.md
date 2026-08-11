@@ -4,6 +4,12 @@ A single-file, offline HTML tool that reproduces the takeoff and landing (TOLD)
 performance tables from the *Model 501 Citation I/SP Pilots' Abbreviated
 Checklist*, Revision 28 (501CL-28).
 
+Rudy Poussot shared this nifty tool he'd written on
+[BeechTalk](https://www.beechtalk.com) and I volunteered to beef it up a little
+and make it more cloud-friendly. His original tool was vibe coded using
+performance data from the checklist he mentions above, and my changes are to make
+it friendly to host on Cloudflare, plus a few new features.
+
 ## Disclaimer
 
 **Not an operational or dispatch tool.** This calculator reproduces takeoff and
@@ -24,9 +30,13 @@ flight.
 
 1. Select the airframe **Configuration** (AB or AC) — this determines which
    table set applies.
-2. Fill in the **Takeoff** or **Landing** tab: weight, field elevation,
+2. *Optional:* type an **Airport** code and press **Load Wx** to fill field
+   elevation, altimeter setting, and OAT on both tabs from the latest METAR.
+   See [Airport weather lookup](#airport-weather-lookup) for what it will and
+   won't do.
+3. Fill in the **Takeoff** or **Landing** tab: weight, field elevation,
    altimeter setting, OAT, runway length, surface, wind, and gradient.
-3. Press **Calculate**. Every result cites the exact source page and table it
+4. Press **Calculate**. Every result cites the exact source page and table it
    came from.
 
 The **Theme** button in the header cycles Auto → Light → Dark. Auto follows the
@@ -34,11 +44,66 @@ device's appearance setting and tracks changes live; an explicit choice is
 remembered in `localStorage`. The theme resolves in an inline `<head>` script
 before first paint, so the pinned app never flashes the wrong palette.
 
+## Airport weather lookup
+
+Enter a 4-letter ICAO code or a 3-letter IATA code — worldwide — and the tool
+fills **field elevation**, **altimeter setting**, and **OAT** on both tabs from
+that station's latest METAR. It reports the station name, the age of the
+observation, and the raw METAR text so you can see exactly what it used.
+
+It is advisory only. Confirm against your own altimeter and the current ATIS
+before using any of it, and note these deliberate limits:
+
+- **Wind is reported, not filled.** The wind inputs are a head/tail *component*
+  in knots, and converting a METAR wind direction into a component needs the
+  runway heading, which this tool never asks for. Rather than write an
+  unverified number into a performance field, the observed wind is shown as text
+  (`300° at 4 kt`) for you to resolve yourself.
+- **An ambiguous code fills nothing.** Three-letter codes are not unique across
+  namespaces: `HND` is Tokyo Haneda (16 ft) as an IATA code but Henderson,
+  Nevada (2,428 ft) as an FAA local code, and `MDQ` is either Mar del Plata or
+  Madison County, Alabama. When a code matches more than one reporting station
+  the tool lists the matches and fills nothing, because filling from the wrong
+  airport is worse than filling from none. Use the ICAO code to be certain.
+- **Elevation is the reporting station's**, which can differ from published
+  field elevation by a few feet (KHSV reports 623 ft against a published
+  629 ft). Treat it as a starting point, not a source of truth.
+- **The observation can be stale.** METARs are typically hourly, so the age is
+  always shown and flagged once it passes 75 minutes.
+- **It needs a network connection**, and it is never cached — see
+  [How the lookup works](#how-the-lookup-works). Every field it touches stays
+  editable by hand, and the calculator itself works with no connectivity at all.
+
+### How the lookup works
+
+Weather comes from the NOAA Aviation Weather Center API, which needs no API key
+but sends no `Access-Control-Allow-Origin` header — so the browser cannot call it
+directly. `functions/api/metar.js` is a Cloudflare Pages Function that proxies it
+from our own origin and normalises the units in one place, because the upstream
+units are not the ones the calculator wants and look plausible if taken at face
+value: `altim` is hectopascals (1018 → 30.06 inHg) and `elev` is metres
+(190 m → 623 ft).
+
+`sw.js` skips `/api/` entirely. The cache is cache-first, so caching weather
+would serve an old altimeter setting and temperature as though they were current.
+
+The API accepts ICAO identifiers only, and outside North America nothing derives
+one from an IATA code (`LHR` → `EGLL`), so `functions/api/_iata.js` holds a
+generated IATA → ICAO table of 8,352 airports. It lives under `functions/`, which
+Pages bundles into the Function and does **not** serve as a static asset, so the
+browser downloads none of it. Regenerate it from
+[OurAirports](https://ourairports.com/data/) data with:
+
+```sh
+python3 scripts/build-iata-map.py
+```
+
 ## Running it
 
 `index.html` is fully self-contained — styles, performance tables, and logic all
-live in that one file, with no build step and no network dependency. It works
-three ways:
+live in that one file, with no build step. The performance calculations need no
+network; only the optional airport weather lookup does, and that runs through a
+Pages Function in `functions/`. It works three ways:
 
 - **Locally**: open `index.html` directly in any modern browser (`file://` is
   fine). Two things need a server and are skipped there: the offline service
@@ -49,6 +114,8 @@ three ways:
   command and no output subdirectory — the deployed tree is the repository tree.
   `_headers` sets the security headers and keeps `index.html`, `sw.js`, and the
   manifest revalidating so a deployed change actually reaches pinned devices.
+  `functions/` is picked up automatically and becomes the `/api/*` routes; it is
+  bundled into the Function rather than served as static files.
   Live at [citation-perf.pro](https://citation-perf.pro).
 - **Pinned on iOS/iPadOS**: open the deployed URL in Safari, then
   *Share → Add to Home Screen*. It launches standalone (no browser chrome),
@@ -108,6 +175,14 @@ standard formula rather than aircraft-specific data. Anti-ice, wind, slope, and
 dispatch factoring are applied only where the source itself provides a factor
 (anti-ice ON ×1.25 on takeoff distance); wind, slope, and contaminated-runway
 corrections are not published in this document and are therefore not computed.
+
+The airport lookup uses two outside sources, neither of which affects any
+performance table:
+
+- Observations from the [NOAA Aviation Weather Center](https://aviationweather.gov/)
+  METAR API.
+- IATA → ICAO identifiers from [OurAirports](https://ourairports.com/data/),
+  which is public domain.
 
 ## License
 
