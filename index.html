@@ -127,6 +127,28 @@
   .checkrow input{width:auto;}
   .checkrow label{margin:0;color:var(--text);font-size:13px;}
 
+  /* ---- Runway picker ---- */
+  #aptRunways{ margin-top:10px; }
+  .rwy-hdr{ font-size:12px; color:var(--muted); margin:0 0 6px; }
+  .rwy-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(88px,1fr)); gap:6px; }
+  .rwy-btn{ background:var(--panel2); border:1px solid var(--border); border-radius:8px;
+    padding:8px 6px; cursor:pointer; text-align:center; margin:0; width:auto;
+    display:flex; flex-direction:column; align-items:center; gap:2px;
+    -webkit-appearance:none; touch-action:manipulation; }
+  .rwy-btn:hover{ filter:brightness(1.08); }
+  .rwy-btn.rwy-active{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+  .rwy-btn.rwy-active .rwy-len,.rwy-btn.rwy-active .rwy-sfc{ color:inherit; opacity:.85; }
+  .rwy-btn.rwy-active .rwy-wind{ color:inherit !important; opacity:.9; }
+  .rwy-btn.rwy-best:not(.rwy-active){ border-color:var(--good); }
+  .rwy-ident{ font-family:var(--mono); font-size:20px; font-weight:700; line-height:1; }
+  .rwy-len{ font-size:11px; color:var(--muted); }
+  .rwy-sfc{ font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; }
+  .rwy-wind{ font-size:11.5px; font-weight:600; }
+  .rwy-wind.head{ color:var(--good); }
+  .rwy-wind.tail{ color:var(--bad); }
+  .rwy-wind.xwind{ color:var(--warn); }
+  .rwy-wind.calm,.rwy-wind.unk{ color:var(--muted); }
+
   /* ---- iOS / mobile polish ---- */
   html{ -webkit-text-size-adjust:100%; }
   /* Only the header clears the status bar / notch; adding the top inset to body
@@ -161,7 +183,7 @@
     <p>Built from Rudy's Pilots' Abbreviated Checklist (501CL-28) &mdash; reference / training tool only. Not for flight dispatch.</p>
   </div>
   <div class="headright">
-    <span class="appversion" id="appVersion" title="Application version">v1.1.1</span>
+    <span class="appversion" id="appVersion" title="Application version">v1.2.0</span>
     <button type="button" class="themebtn" id="themeBtn" onclick="cycleTheme()" aria-live="polite">Theme: Auto</button>
   </div>
 </header>
@@ -207,6 +229,7 @@
         editable by hand. A 4-letter ICAO code is unambiguous; some 3-letter codes match more than one airport, and
         those fill nothing until you narrow them down.</p>
         <div id="aptStatus"></div>
+        <div id="aptRunways"></div>
       </div>
 
       <div class="tabbar">
@@ -322,6 +345,8 @@ function showTab(name){
  * text instead, for the pilot to resolve and enter.
  */
 const APT_STALE_MIN = 75;
+let aptWind = null;       // { windDirDeg, windDirRaw, windSpeedKt } from last METAR
+let aptRwyList = [];      // array of runway objects from last /api/runways response
 
 function aptEsc(s){
   return String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -400,14 +425,17 @@ async function loadAirportWx(){
       return;
     }
 
+    /* Store wind data so the runway picker can compute head/tail components. */
+    aptWind = { windDirDeg: data.windDirDeg, windDirRaw: data.windDirRaw, windSpeedKt: data.windSpeedKt };
+
     const age = data.ageMinutes;
     const stale = age !== null && age > APT_STALE_MIN;
     let msg = '<b>' + aptEsc(data.stationId) + '</b>'
       + (data.name ? ' &mdash; ' + aptEsc(data.name) : '')
       + '. Filled ' + filled.join(', ') + ' on both tabs.'
-      + ' Observed wind ' + aptWindText(data) + ' &mdash; enter the head/tail component yourself,'
-      + ' since that needs the runway heading.'
-      + ' Elevation is the reporting station’s, which can differ from published field elevation'
+      + ' Observed wind: ' + aptWindText(data) + '.'
+      + ' Select a runway below to fill length, surface, and wind component.'
+      + ' Elevation is the reporting station&rsquo;s, which can differ from published field elevation'
       + ' by a few feet; confirm before use.';
     if(age !== null){
       msg += ' Report is ' + age + ' min old' + (stale ? ' &mdash; <b>this may no longer be current</b>.' : '.');
@@ -415,10 +443,161 @@ async function loadAirportWx(){
     if(data.rawOb) msg += '<br><span class="src">' + aptEsc(data.rawOb) + '</span>';
 
     aptSay(msg, stale ? 'warn' : '');
+    loadRunways(data.stationId);
   } catch(err){
     aptSay('Could not reach the weather service. If you are offline, enter the conditions by hand — every field stays editable.', 'bad');
   } finally {
     btn.disabled = false; btn.textContent = label;
+  }
+}
+
+/* ---- Runway picker -------------------------------------------------------
+ * After METAR loads we fetch /api/runways?id=ICAO and show a grid of runway
+ * buttons. Clicking one fills length, surface, and the head/tail wind component
+ * computed from the stored METAR wind and the magnetic heading derived from the
+ * runway identifier (e.g. "18L" → 180°).
+ *
+ * Wind: METAR surface wind is reported in degrees magnetic (both FAA and ICAO).
+ * Runway identifier encodes magnetic heading. The component is advisory only.
+ */
+
+function rwyMagHdg(ident){
+  const n = parseInt(ident, 10);
+  if(!n || isNaN(n)) return null;
+  return n * 10; // 36 → 360, 18 → 180, etc.
+}
+
+function hwKt(dirDeg, speedKt, rwyHdg){
+  if(!speedKt) return 0;
+  return Math.round(speedKt * Math.cos((dirDeg - rwyHdg) * Math.PI / 180));
+}
+
+function sfcLabel(code){
+  return code === 'H' ? 'Hard' : code === 'G' ? 'Gravel' : code === 'S' ? 'Grass' : 'Sfc N/K';
+}
+
+function sfcVal(code){
+  return code === 'H' ? 'dry' : 'other';
+}
+
+function rwyWindHtml(windDirDeg, windDirRaw, windSpeedKt, rwyHdg){
+  if(windSpeedKt === null) return '<span class="rwy-wind unk">wind N/R</span>';
+  if(windSpeedKt === 0)    return '<span class="rwy-wind calm">calm</span>';
+  if(windDirRaw === 'VRB') return '<span class="rwy-wind xwind">variable</span>';
+  if(windDirDeg === null)  return '<span class="rwy-wind unk">dir N/R</span>';
+  if(rwyHdg === null)      return '<span class="rwy-wind unk">—</span>';
+  const hw = hwKt(windDirDeg, windSpeedKt, rwyHdg);
+  if(hw > 0) return '<span class="rwy-wind head">&#9650;&thinsp;' + hw + ' kt</span>';
+  if(hw < 0) return '<span class="rwy-wind tail">&#9660;&thinsp;' + (-hw) + ' kt</span>';
+  return '<span class="rwy-wind xwind">x-wind</span>';
+}
+
+async function loadRunways(icao){
+  document.getElementById('aptRunways').innerHTML = '';
+  aptRwyList = [];
+  if(location.protocol === 'file:') return;
+  try{
+    const res = await fetch('/api/runways?id=' + encodeURIComponent(icao), { headers: { accept: 'application/json' } });
+    if(!res.ok) return;
+    const data = await res.json().catch(() => null);
+    if(!data || !Array.isArray(data.runways) || data.runways.length === 0) return;
+    aptRwyList = data.runways;
+    renderRunwayPicker(icao, data.runways);
+  } catch(e){ /* runway data is advisory; silently skip on error */ }
+}
+
+function renderRunwayPicker(icao, runways){
+  const w = aptWind || {};
+  const { windDirDeg = null, windDirRaw = null, windSpeedKt = null } = w;
+  const hasDir = windSpeedKt !== null && windSpeedKt !== 0 && windDirDeg !== null && windDirRaw !== 'VRB';
+
+  /* Flatten runway pairs into individual ends, compute headwind for each. */
+  const ends = [];
+  for(let i = 0; i < runways.length; i++){
+    const rwy = runways[i];
+    for(const end of ['le','he']){
+      const ident = rwy[end];
+      if(!ident) continue;
+      const hdg = rwyMagHdg(ident);
+      const hw = (hasDir && hdg !== null) ? hwKt(windDirDeg, windSpeedKt, hdg) : null;
+      ends.push({ i, end, ident, rwy, hdg, hw });
+    }
+  }
+  if(!ends.length) return;
+
+  /* Best = highest headwind component. */
+  let bestIdx = -1, bestHw = -Infinity;
+  for(let k = 0; k < ends.length; k++){
+    if(ends[k].hw !== null && ends[k].hw > bestHw){ bestHw = ends[k].hw; bestIdx = k; }
+  }
+
+  let html = '<p class="rwy-hdr">Runways at ' + aptEsc(icao) + ' &mdash; select to fill length, surface, and wind</p>'
+    + '<div class="rwy-grid">';
+
+  for(let k = 0; k < ends.length; k++){
+    const e = ends[k];
+    const isBest = (k === bestIdx);
+    const lenStr = e.rwy.lengthFt ? e.rwy.lengthFt.toLocaleString() + ' ft' : '—';
+    const windHtml = rwyWindHtml(windDirDeg, windDirRaw, windSpeedKt, e.hdg);
+    html += '<button type="button" class="rwy-btn' + (isBest ? ' rwy-best' : '') + '"'
+      + ' onclick="selectRunway(' + e.i + ',\'' + e.end + '\')">'
+      + '<span class="rwy-ident">' + aptEsc(e.ident) + '</span>'
+      + '<span class="rwy-len">' + lenStr + '</span>'
+      + '<span class="rwy-sfc">' + sfcLabel(e.rwy.surface) + '</span>'
+      + windHtml
+      + '</button>';
+  }
+  html += '</div>';
+  document.getElementById('aptRunways').innerHTML = html;
+}
+
+function selectRunway(rwyIdx, end){
+  const rwy = aptRwyList[rwyIdx];
+  if(!rwy) return;
+  const ident = rwy[end];
+  const hdg = rwyMagHdg(ident);
+
+  /* Fill runway length on both tabs. */
+  if(rwy.lengthFt){
+    document.getElementById('toRwy').value = rwy.lengthFt;
+    document.getElementById('ldgRwy').value = rwy.lengthFt;
+  }
+
+  /* Fill surface. */
+  const sv = sfcVal(rwy.surface);
+  document.getElementById('toSurface').value = sv;
+  document.getElementById('ldgSurface').value = sv;
+
+  /* Fill wind component. */
+  const w = aptWind || {};
+  const { windDirDeg = null, windDirRaw = null, windSpeedKt = null } = w;
+  if(windSpeedKt === 0){
+    document.getElementById('toWind').value = 0;
+    document.getElementById('toWindDir').value = 'head';
+    document.getElementById('ldgWind').value = 0;
+    document.getElementById('ldgWindDir').value = 'head';
+  } else if(windSpeedKt !== null && windDirDeg !== null && windDirRaw !== 'VRB' && hdg !== null){
+    const hw = hwKt(windDirDeg, windSpeedKt, hdg);
+    const absHw = Math.abs(hw);
+    const dir = hw >= 0 ? 'head' : 'tail';
+    document.getElementById('toWind').value = absHw;
+    document.getElementById('toWindDir').value = dir;
+    document.getElementById('ldgWind').value = absHw;
+    document.getElementById('ldgWindDir').value = dir;
+  }
+
+  /* Update active state. */
+  document.querySelectorAll('.rwy-btn').forEach((b, k) => b.classList.remove('rwy-active'));
+  const btns = document.querySelectorAll('.rwy-btn');
+  /* Re-derive the button index: le ends come first within each pair. */
+  let flat = 0;
+  for(let i = 0; i < aptRwyList.length; i++){
+    for(const e of ['le','he']){
+      if(aptRwyList[i][e]){
+        if(i === rwyIdx && e === end){ btns[flat] && btns[flat].classList.add('rwy-active'); }
+        flat++;
+      }
+    }
   }
 }
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.2.0 — 2026-08-12
+
+After the user loads airport weather, a runway picker shows all runways. Selecting
+a runway fills length, surface, and the head/tail wind component on both tabs.
+
 ## v1.1.1 — 2026-08-11
 
 The service worker gets the page from the network first, and uses the cache only
