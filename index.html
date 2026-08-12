@@ -161,7 +161,7 @@
     <p>Built from Rudy's Pilots' Abbreviated Checklist (501CL-28) &mdash; reference / training tool only. Not for flight dispatch.</p>
   </div>
   <div class="headright">
-    <span class="appversion" id="appVersion" title="Application version">v1.1.0</span>
+    <span class="appversion" id="appVersion" title="Application version">v1.1.1</span>
     <button type="button" class="themebtn" id="themeBtn" onclick="cycleTheme()" aria-live="polite">Theme: Auto</button>
   </div>
 </header>
@@ -784,8 +784,28 @@ if(window.matchMedia){
 
 /* ---------- Offline support for the pinned/home-screen app ---------- */
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  /* Whether a worker was already driving this page when it loaded. On a first
+   * install there is no stale build on screen, so the takeover below must not
+   * reload -- that would just be a pointless second load every first visit. */
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => { /* offline caching is optional */ });
+    navigator.serviceWorker.register('sw.js')
+      // Ask explicitly rather than relying on the browser's own update
+      // schedule, which Safari in particular is slow about.
+      .then((reg) => reg.update())
+      .catch(() => { /* offline caching is optional */ });
+  });
+
+  /* A new worker has claimed the page, so what is rendered is the old build.
+   * Reload once to show the one that was just deployed. Without this the user
+   * has to load the page twice before a deploy is visible, and has no way of
+   * knowing it. */
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if(!hadController || reloading) return;
+    reloading = true;
+    location.reload();
   });
 }
 </script>

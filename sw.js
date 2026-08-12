@@ -1,11 +1,13 @@
 /* Offline cache for the pinned home-screen app.
  *
- * Everything here is a small, static, versioned asset, so the strategy is
- * simple: precache on install, serve cache-first, and drop old caches on
- * activate. CACHE_VERSION tracks the version label in index.html and must stay
+ * Precache on install and drop old caches on activate. Static assets are served
+ * cache-first -- they are versioned, so there is nothing stale to serve. The
+ * document is served network-first, falling back to the cache only when there is
+ * no connectivity, so an online device never renders a superseded build.
+ * CACHE_VERSION tracks the version label in index.html and must stay
  * in sync with it, or a pinned app keeps serving the old build. Don't edit it by
  * hand -- run scripts/bump-version.sh, which updates both files together. */
-const CACHE_VERSION = 'told-v1.1.0';
+const CACHE_VERSION = 'told-v1.1.1';
 /* './' is the canonical entry -- deliberately no 'index.html' entry. Pages
  * 308-redirects /index.html to /, so precaching it would store a response with
  * redirected=true, which browsers refuse to serve for a navigation request. */
@@ -48,6 +50,31 @@ self.addEventListener('fetch', (event) => {
    * fail honestly when there is no connectivity. */
   if (url.pathname.startsWith('/api/')) return;
 
+  /* The document itself is network-first. Cache-first was wrong for it: after a
+   * deploy an already-installed device kept rendering the previous build until
+   * it was loaded a second time, so a pilot could read stale numbers while
+   * believing they were current. Online, the page is always the live one;
+   * offline, it falls back to the cached copy, which is what the cache is for.
+   *
+   * Static assets below stay cache-first -- they are versioned by CACHE_VERSION
+   * and a new build precaches its own, so there is nothing stale to serve. */
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res && res.ok && res.type === 'basic' && !res.redirected) {
+            const copy = res.clone();
+            // Store under the canonical entry, so the offline fallback finds it
+            // whatever URL the navigation used.
+            caches.open(CACHE_VERSION).then((cache) => cache.put('./', copy));
+          }
+          return res;
+        })
+        .catch(() => caches.match('./').then((hit) => hit || Response.error()))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(req).then((hit) => {
       if (hit) return hit;
@@ -61,7 +88,7 @@ self.addEventListener('fetch', (event) => {
           }
           return res;
         })
-        .catch(() => (req.mode === 'navigate' ? caches.match('./') : Response.error()));
+        .catch(() => Response.error());
     })
   );
 });

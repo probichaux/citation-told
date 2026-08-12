@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.1.1 — 2026-08-11
+
+The service worker gets the page from the network first, and uses the cache only
+when the device is offline. The page reloads once when a new version installs.
+
 ## v1.1.0 — 2026-08-11
 
 The user can give a worldwide ICAO or IATA code to fill field elevation,
