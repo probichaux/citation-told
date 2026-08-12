@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.3.0 — 2026-08-12
+
+The runway picker shows gradient for each runway end and fills the takeoff gradient field
+when the user selects a runway. The data comes from OurAirports elevation fields.
+
 ## v1.2.0 — 2026-08-12
 
 After the user loads airport weather, a runway picker shows all runways. Selecting

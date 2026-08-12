@@ -148,6 +148,8 @@
   .rwy-wind.tail{ color:var(--bad); }
   .rwy-wind.xwind{ color:var(--warn); }
   .rwy-wind.calm,.rwy-wind.unk{ color:var(--muted); }
+  .rwy-grad{ font-size:10px; color:var(--muted); }
+  .rwy-btn.rwy-active .rwy-grad{ color:inherit; opacity:.85; }
 
   /* ---- iOS / mobile polish ---- */
   html{ -webkit-text-size-adjust:100%; }
@@ -183,7 +185,7 @@
     <p>Built from Rudy's Pilots' Abbreviated Checklist (501CL-28) &mdash; reference / training tool only. Not for flight dispatch.</p>
   </div>
   <div class="headright">
-    <span class="appversion" id="appVersion" title="Application version">v1.2.0</span>
+    <span class="appversion" id="appVersion" title="Application version">v1.3.0</span>
     <button type="button" class="themebtn" id="themeBtn" onclick="cycleTheme()" aria-live="polite">Theme: Auto</button>
   </div>
 </header>
@@ -511,7 +513,7 @@ function renderRunwayPicker(icao, runways){
   const { windDirDeg = null, windDirRaw = null, windSpeedKt = null } = w;
   const hasDir = windSpeedKt !== null && windSpeedKt !== 0 && windDirDeg !== null && windDirRaw !== 'VRB';
 
-  /* Flatten runway pairs into individual ends, compute headwind for each. */
+  /* Flatten runway pairs into individual ends, compute headwind and gradient for each. */
   const ends = [];
   for(let i = 0; i < runways.length; i++){
     const rwy = runways[i];
@@ -520,7 +522,11 @@ function renderRunwayPicker(icao, runways){
       if(!ident) continue;
       const hdg = rwyMagHdg(ident);
       const hw = (hasDir && hdg !== null) ? hwKt(windDirDeg, windSpeedKt, hdg) : null;
-      ends.push({ i, end, ident, rwy, hdg, hw });
+      /* Gradient is stored le→he; negate for the he end (pilot is going he→le). */
+      const grad = rwy.gradientPct != null
+        ? (end === 'he' ? -rwy.gradientPct : rwy.gradientPct)
+        : null;
+      ends.push({ i, end, ident, rwy, hdg, hw, grad });
     }
   }
   if(!ends.length) return;
@@ -531,19 +537,23 @@ function renderRunwayPicker(icao, runways){
     if(ends[k].hw !== null && ends[k].hw > bestHw){ bestHw = ends[k].hw; bestIdx = k; }
   }
 
-  let html = '<p class="rwy-hdr">Runways at ' + aptEsc(icao) + ' &mdash; select to fill length, surface, and wind</p>'
+  let html = '<p class="rwy-hdr">Runways at ' + aptEsc(icao) + ' &mdash; select to fill length, surface, gradient, and wind</p>'
     + '<div class="rwy-grid">';
 
   for(let k = 0; k < ends.length; k++){
     const e = ends[k];
     const isBest = (k === bestIdx);
     const lenStr = e.rwy.lengthFt ? e.rwy.lengthFt.toLocaleString() + ' ft' : '—';
+    const gradStr = e.grad != null
+      ? (e.grad > 0 ? '+' : '') + e.grad.toFixed(1) + '%'
+      : '—';
     const windHtml = rwyWindHtml(windDirDeg, windDirRaw, windSpeedKt, e.hdg);
     html += '<button type="button" class="rwy-btn' + (isBest ? ' rwy-best' : '') + '"'
       + ' onclick="selectRunway(' + e.i + ',\'' + e.end + '\')">'
       + '<span class="rwy-ident">' + aptEsc(e.ident) + '</span>'
       + '<span class="rwy-len">' + lenStr + '</span>'
       + '<span class="rwy-sfc">' + sfcLabel(e.rwy.surface) + '</span>'
+      + '<span class="rwy-grad">' + gradStr + '</span>'
       + windHtml
       + '</button>';
   }
@@ -561,6 +571,12 @@ function selectRunway(rwyIdx, end){
   if(rwy.lengthFt){
     document.getElementById('toRwy').value = rwy.lengthFt;
     document.getElementById('ldgRwy').value = rwy.lengthFt;
+  }
+
+  /* Fill runway gradient (takeoff tab only; stored le→he, so negate for he end). */
+  if(rwy.gradientPct != null){
+    const grad = end === 'he' ? -rwy.gradientPct : rwy.gradientPct;
+    document.getElementById('toSlope').value = grad;
   }
 
   /* Fill surface. */

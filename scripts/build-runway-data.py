@@ -123,7 +123,18 @@ def main():
 
         sfc = surface_code(row.get("surface",""))
 
-        record = [le, he, length, width, sfc]
+        # Gradient: positive = HE end is higher than LE end (uphill le→he).
+        # Stored from the LE perspective; the UI negates it for the HE end.
+        gradient = None
+        try:
+            le_elev = float(row.get("le_elevation_ft","") or "nan")
+            he_elev = float(row.get("he_elevation_ft","") or "nan")
+            if length > 0 and le_elev == le_elev and he_elev == he_elev:  # NaN check
+                gradient = round((he_elev - le_elev) / length * 100, 1)
+        except (ValueError, ZeroDivisionError):
+            pass
+
+        record = [le, he, length, width, sfc, gradient]
         by_airport.setdefault(ident, []).append(record)
 
     print(f"  {sum(len(v) for v in by_airport.values())} runway records for "
@@ -146,8 +157,9 @@ def main():
  * Regenerate with:  python3 scripts/build-runway-data.py
  *
  * Runway data for {len(by_airport)} airports, from OurAirports (public domain).
- * Each entry: [le_ident, he_ident, length_ft, width_ft, surface_code]
+ * Each entry: [le_ident, he_ident, length_ft, width_ft, surface_code, gradient_pct]
  *   surface_code: H = hard/paved, G = gravel, S = soft/grass, U = unknown
+ *   gradient_pct: (he_elev - le_elev) / length * 100, positive = uphill le→he, or null
  *
  * The leading underscore keeps Pages from routing this file as an endpoint.
  */

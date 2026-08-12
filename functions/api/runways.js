@@ -8,11 +8,13 @@
  *
  * Response shape (200):
  *   { icao: "KHSV", runways: [
- *       { le: "18L", he: "36R", lengthFt: 12600, widthFt: 150, surface: "H" },
+ *       { le: "18L", he: "36R", lengthFt: 12600, widthFt: 150, surface: "H",
+ *         gradientPct: -0.1 },
  *       ...
  *   ]}
  *
  * surface codes: H = hard/paved, G = gravel, S = soft/grass, U = unknown
+ * gradientPct: (he_elev - le_elev) / length * 100, positive = uphill le→he; null = unavailable
  */
 
 import { runwaysFor } from './_runways.js';
@@ -44,12 +46,13 @@ export async function onRequestGet({ request }) {
     );
   }
 
-  const runways = rows.map(([le, he, lengthFt, widthFt, surface]) => ({
+  const runways = rows.map(([le, he, lengthFt, widthFt, surface, gradientPct]) => ({
     le,
     he,
     lengthFt,
     widthFt,
     surface,
+    gradientPct: gradientPct ?? null,
   }));
 
   return json({ icao, runways }, 200, 86400);
