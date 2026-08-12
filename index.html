@@ -349,6 +349,7 @@ function showTab(name){
 const APT_STALE_MIN = 75;
 let aptWind = null;       // { windDirDeg, windDirRaw, windSpeedKt } from last METAR
 let aptRwyList = [];      // array of runway objects from last /api/runways response
+let aptRwyIdent = null;   // ident of the runway end the user last selected ("18L", "36R", …)
 
 function aptEsc(s){
   return String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -565,6 +566,7 @@ function selectRunway(rwyIdx, end){
   const rwy = aptRwyList[rwyIdx];
   if(!rwy) return;
   const ident = rwy[end];
+  aptRwyIdent = ident || null;
   const hdg = rwyMagHdg(ident);
 
   /* Fill runway length on both tabs. */
@@ -795,7 +797,7 @@ function computeTakeoff(){
     const margin = rwyAvail - dist;
     const marginCls = margin>=0 ? 'margin-pos':'margin-neg';
     toflHtml = `
-      <div class="flexrow"><span class="bignum">${fmt(dist)} ft</span>${badge(margin>=0?'ok':'bad', margin>=0?'Runway sufficient':'INSUFFICIENT RUNWAY')}</div>
+      <div class="flexrow"><span class="bignum">${aptRwyIdent ? aptRwyIdent + ' — ' : ''}${fmt(dist)} ft</span>${badge(margin>=0?'ok':'bad', margin>=0?'Runway sufficient':'INSUFFICIENT RUNWAY')}</div>
       <p class="subtle">Takeoff field length required${aiNote}. Runway available: ${fmt(rwyAvail)} ft.</p>
       <div class="flexrow"><span>Margin</span><span class="bignum ${marginCls}" style="font-size:20px">${margin>=0?'+':''}${fmt(margin)} ft</span></div>
       <div class="src">Source: Checklist p.${cfgInfo.page_tofl}, "TAKEOFF FIELD LENGTH", ${cfgInfo.label}, PA ${paList[bracket(paList,pa).lo]}&ndash;${paList[bracket(paList,pa).hi]} ft bracket.</div>
@@ -919,7 +921,7 @@ function computeLanding(){
     const margin = rwyAvail - dist;
     const marginCls = margin>=0?'margin-pos':'margin-neg';
     ldgHtml = `
-      <div class="flexrow"><span class="bignum">${fmt(dist)} ft</span>${badge(margin>=0?'ok':'bad', margin>=0?'Runway sufficient':'INSUFFICIENT RUNWAY')}</div>
+      <div class="flexrow"><span class="bignum">${aptRwyIdent ? aptRwyIdent + ' — ' : ''}${fmt(dist)} ft</span>${badge(margin>=0?'ok':'bad', margin>=0?'Runway sufficient':'INSUFFICIENT RUNWAY')}</div>
       <p class="subtle">Actual landing distance (flaps FULL), zero wind/gradient, dry paved runway. Runway available: ${fmt(rwyAvail)} ft.</p>
       <div class="flexrow"><span>Margin</span><span class="bignum ${marginCls}" style="font-size:20px">${margin>=0?'+':''}${fmt(margin)} ft</span></div>
       <div class="src">Source: Checklist p.${cfgInfo.page_ldg}, "LANDING DISTANCE - FEET FLAPS - FULL, ACTUAL DISTANCE", ${cfgInfo.label}.</div>
