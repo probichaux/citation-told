@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased — 2026-08-13
+
+The airport weather comment now says the tool stores METAR wind first.
+Runway selection fills the wind component later.
+
 ## v1.3.0 — 2026-08-12
 
 The runway picker shows gradient for each runway end and fills the takeoff gradient field

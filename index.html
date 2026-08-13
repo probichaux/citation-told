@@ -340,11 +340,10 @@ function showTab(name){
  * via the same-origin /api/metar proxy (the upstream NOAA API sends no CORS
  * header, so the browser cannot call it directly).
  *
- * Wind is deliberately NOT filled. The wind inputs here are a head/tail
- * *component* in knots, and computing a component from a METAR direction needs
- * the runway heading, which this tool never asks for. Guessing it would write an
- * unverified number into a performance field. The observed wind is reported as
- * text instead, for the pilot to resolve and enter.
+ * This step stores the METAR wind, but it does not fill the wind inputs yet.
+ * The wind inputs here are a head/tail *component* in knots, so the tool waits
+ * for runway selection and then computes the component from the runway heading.
+ * The observed wind is also reported as text for the pilot to confirm.
  */
 const APT_STALE_MIN = 75;
 let aptWind = null;       // { windDirDeg, windDirRaw, windSpeedKt } from last METAR
