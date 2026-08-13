@@ -495,13 +495,18 @@ function rwyWindHtml(windDirDeg, windDirRaw, windSpeedKt, rwyHdg){
 }
 
 async function loadRunways(icao){
-  document.getElementById('aptRunways').innerHTML = '';
+  const el = document.getElementById('aptRunways');
+  el.innerHTML = '';
   aptRwyList = [];
+  aptRwyIdent = null;
   if(location.protocol === 'file:') return;
   try{
     const res = await fetch('/api/runways?id=' + encodeURIComponent(icao), { headers: { accept: 'application/json' } });
-    if(!res.ok) return;
     const data = await res.json().catch(() => null);
+    if(!res.ok){
+      if(data && data.message) el.innerHTML = '<p class="rwy-hdr">' + aptEsc(data.message) + '</p>';
+      return;
+    }
     if(!data || !Array.isArray(data.runways) || data.runways.length === 0) return;
     aptRwyList = data.runways;
     renderRunwayPicker(icao, data.runways);
