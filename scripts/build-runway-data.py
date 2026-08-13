@@ -3,9 +3,9 @@
 
 For each ICAO airport (large/medium/small, open runways only) this emits a
 compact JSON table keyed by ICAO identifier. Each entry is a list of runway
-records: [le_ident, he_ident, length_ft, width_ft, surface_code] where
-surface_code is H (hard/paved), G (gravel), S (soft/grass), or U (unknown).
-
+records: [le_ident, he_ident, length_ft, width_ft, surface_code, gradient_pct] where
+surface_code is H (hard/paved), G (gravel), S (soft/grass), or U (unknown), and
+gradient_pct is positive uphill le->he, or null if unavailable.
 Run with no arguments to fetch current data, or supply local CSV paths:
 
     python3 scripts/build-runway-data.py [airports.csv [runways.csv]]
