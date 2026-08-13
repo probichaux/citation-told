@@ -1,8 +1,8 @@
 /* Same-origin runway data endpoint.
  *
  * Returns the runway list for an ICAO airport identifier from the embedded
- * OurAirports table. Runway data changes rarely, so responses are cached at
- * the edge for 24 hours.
+ * OurAirports table. Runway data changes rarely, so responses are cacheable for
+ * 24 hours.
  *
  * GET /api/runways?id=KHSV
  *
