@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — 2026-08-13
+## v1.3.1 — 2026-08-13
 
 The airport weather comment now says the tool stores METAR wind first.
 Runway selection fills the wind component later.
