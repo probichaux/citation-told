@@ -7,8 +7,8 @@ Runway selection fills the wind component later.
 
 ## v1.3.0 — 2026-08-12
 
-The runway picker shows gradient for each runway end and fills the takeoff gradient field
-when the user selects a runway. The data comes from OurAirports elevation fields.
+The runway picker shows runway gradient for each runway end.
+It fills the takeoff gradient field when the user selects a runway.
 
 ## v1.2.0 — 2026-08-12
 
