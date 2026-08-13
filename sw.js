@@ -7,7 +7,7 @@
  * CACHE_VERSION tracks the version label in index.html and must stay
  * in sync with it, or a pinned app keeps serving the old build. Don't edit it by
  * hand -- run scripts/bump-version.sh, which updates both files together. */
-const CACHE_VERSION = 'told-v1.1.1';
+const CACHE_VERSION = 'told-v1.3.0';
 /* './' is the canonical entry -- deliberately no 'index.html' entry. Pages
  * 308-redirects /index.html to /, so precaching it would store a response with
  * redirected=true, which browsers refuse to serve for a navigation request. */
